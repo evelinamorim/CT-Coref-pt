@@ -1,7 +1,10 @@
 # Incorporating Centering Theory into Neural Coreference Resolution
 
-This repository contains the code and trained model from the paper ["Incorporating Centering Theory into Neural Coreference Resolution"](https://aclanthology.org/2022.naacl-main.218.pdf).
+This repository contains a modified version of the code and trained model from the paper
 
+["Incorporating Centering Theory into Neural Coreference Resolution"](https://aclanthology.org/2022.naacl-main.218.pdf).
+
+Here I try to do experiments for Portuguese co-reference.
 
 ## Set up
 
@@ -10,6 +13,10 @@ Set up a virtual environment with Python 3.7 and run:
 ```
 pip install -r requirements.txt
 ```
+
+* Update July 13th, 2023: Using virtual enviroment, in Ubuntu Linux, the transformers library was installed according 
+to the instruction in this [link](https://github.com/huggingface/transformers/issues/2831#issuecomment-595486000). Also, the release
+employed is available in this [link](https://github.com/huggingface/transformers/releases/tag/v3.3.1).
 
 Follow the [Quick Start](https://github.com/NVIDIA/apex) to enable mixed precision using apex.
 

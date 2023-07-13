@@ -26,6 +26,7 @@ class DocumentState(object):
         self.coref_stacks = collections.defaultdict(list)
 
     def assert_empty(self):
+
         assert self.doc_key is None
         assert len(self.text) == 0
         assert len(self.text_speakers) == 0
