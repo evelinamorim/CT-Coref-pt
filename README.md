@@ -14,7 +14,8 @@ Set up a virtual environment with Python 3.7 and run:
 pip install -r requirements.txt
 ```
 
-* Update July 17th ,2023: Using the 4.30.2 version of transformers. So, there are some changes in the source code.
+* Update July 17th ,2023: Using the 4.30.2 version of transformers. So, there are some changes in the source code. Also, need 
+setuptools == 59.5.0 (check this [post](https://github.com/pytorch/pytorch/issues/69894))
 
 * Follow the [Quick Start](https://github.com/NVIDIA/apex) to enable mixed precision using apex.
 
