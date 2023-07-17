@@ -6,7 +6,7 @@ import shutil
 import git
 import torch
 
-from transformers import AutoConfig, AutoTokenizer, CONFIG_MAPPING, LongformerConfig
+from transformers import AutoConfig, AutoTokenizer, CONFIG_MAPPING, LongformerConfig, LongformerTokenizer
 from modeling import S2E
 from data import get_dataset
 from cli import parse_args
@@ -84,7 +84,11 @@ def main():
         logger.warning("You are instantiating a new config instance from scratch.")
 
     if args.tokenizer_name:
-        tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, cache_dir=args.cache_dir)
+        if args.tokenizer_class == "longformer":
+            tokenizer = LongformerTokenizer.from_pretrained(args.tokenizer_name, cache_dir=args.cache_dir)
+            #tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, cache_dir=args.cache_dir, tokenizer_class="LongformerTokenizer")
+        else:
+            tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, cache_dir=args.cache_dir)
     elif args.model_name_or_path:
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, cache_dir=args.cache_dir)
     else:
@@ -102,7 +106,7 @@ def main():
                                 cache_dir=args.cache_dir,
                                 args=args)
     
-    model.to(args.device)
+    model = model.to(args.device)
 
     if args.local_rank == 0:
         # End of barrier to make sure only the first process in distributed training download model & vocab

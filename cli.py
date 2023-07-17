@@ -65,6 +65,10 @@ def parse_args():
                         default="allenai/longformer-base-4096",
                         type=str,
                         help="Pretrained tokenizer name or path if not the same as model_name")
+    parser.add_argument("--tokenizer_class",
+                        default="longformer",
+                        type=str,
+                        help="Tokenizer class to be loaded")
     parser.add_argument("--cache_dir",
                         default=None,
                         type=str,

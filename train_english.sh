@@ -10,6 +10,7 @@ python run_coref.py \
         --model_type=longformer \
         --model_name_or_path=allenai/longformer-large-4096 \
         --tokenizer_name=allenai/longformer-large-4096 \
+        --tokenizer_class=longformer \
         --config_name=allenai/longformer-large-4096  \
         --train_file=$DATA_DIR/train.english.jsonlines \
         --predict_file=$DATA_DIR/dev.english.jsonlines \
@@ -23,7 +24,6 @@ python run_coref.py \
         --train_file_cache=$DATA_DIR/train.english.4600.pkl \
         --predict_file_cache=$DATA_DIR/test.english.4600.pkl \
         --gradient_accumulation_steps=1 \
-        --amp \
         --normalise_loss \
         --max_total_seq_len=4600 \
         --experiment_name="s2e_CT-model" \
@@ -38,4 +38,5 @@ python run_coref.py \
         --top_lambda=0.4  \
         --tensorboard_dir=$OUTPUT_DIR/tb \
 	    --t_sim=0.80 \
-        --conll_path_for_eval=$DATA_DIR/dev.english.v4_gold_conll
+        --conll_path_for_eval=$DATA_DIR/dev.english.v4_gold_conll \
+        --overwrite_output_dir
