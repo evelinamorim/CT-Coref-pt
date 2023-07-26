@@ -9,9 +9,9 @@ Here I try to do experiments for Portuguese co-reference.
 ## Set up
 
 #### Requirements
-Set up a virtual environment with Python 3.7 and run: 
+Set up a virtual environment with Python 3.9.17 and run: 
 ```
-pip install -r requirements.txt
+pip install -r requirements2.txt
 ```
 
 * Update July 17th ,2023: Using the 4.30.2 version of transformers. So, there are some changes in the source code. Also, need 
