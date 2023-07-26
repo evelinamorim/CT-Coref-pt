@@ -17,6 +17,14 @@ pip install -r requirements.txt
 * Update July 17th ,2023: Using the 4.30.2 version of transformers. So, there are some changes in the source code. Also, need 
 setuptools == 59.5.0 (check this [post](https://github.com/pytorch/pytorch/issues/69894))
 
+* Update July 19th, 2023: # Install and setup mkl dependencies, if you are going to use intel option
+
+```
+pip install mkl
+
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$SITE_PACKAGES/lib/
+```
+
 * Follow the [Quick Start](https://github.com/NVIDIA/apex) to enable mixed precision using apex.
 
 #### Prepare the dataset

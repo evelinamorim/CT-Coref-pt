@@ -39,8 +39,12 @@ def main():
 
     # Setup CUDA, GPU & distributed training
     if args.local_rank == -1 or args.no_cuda:
-        device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
-        args.n_gpu = torch.cuda.device_count()
+        if args.intel:
+            device = 'xpu'
+            args.n_gpu = 1
+        else:
+            device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+            args.n_gpu = torch.cuda.device_count()
     else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
         torch.cuda.set_device(args.local_rank)
         device = torch.device("cuda", args.local_rank)
@@ -105,7 +109,6 @@ def main():
                                 config=config,
                                 cache_dir=args.cache_dir,
                                 args=args)
-    
     model = model.to(args.device)
 
     if args.local_rank == 0:

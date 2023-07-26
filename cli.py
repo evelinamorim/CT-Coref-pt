@@ -116,6 +116,17 @@ def parse_args():
         action="store_true",
         help="Whether to use automatic mixed precision instead of 32-bit",
     )
+
+    parser.add_argument(
+        "--intel",
+        action="store_true",
+        help="Whether to use graphic card from Intel with pytorch",
+    )
+    parser.add_argument(
+        "--ipex",
+        action="store_true",
+        help="Optimize model using Intel Extension for pytorch",
+    )
     parser.add_argument(
         "--fp16_opt_level",
         type=str,

@@ -21,6 +21,7 @@ class CorefDataset(Dataset):
         examples, self.max_mention_num, self.max_cluster_size, self.max_num_clusters = self._parse_jsonlines(file_path)
 
         self.max_seq_length = max_seq_length
+
         self.examples, self.lengths, self.num_examples_filtered = self._tokenize(examples)
         logger.info(
             f"Finished preprocessing Coref dataset. {len(self.examples)} examples were extracted, {self.num_examples_filtered} were filtered due to sequence length.")
@@ -30,10 +31,14 @@ class CorefDataset(Dataset):
         max_mention_num = -1
         max_cluster_size = -1
         max_num_clusters = -1
+        doc_set = set()
         with open(file_path, 'r') as f:
             for line in f:
                 d = json.loads(line.strip())
                 doc_key = d["doc_key"]
+                if doc_key not in doc_set:
+                    doc_set.add(doc_key)
+
                 input_words = flatten_list_of_lists(d["sentences"])
                 clusters = d["clusters"]
                 sentences = input_words_sentences_mapping(d["sentences"])
@@ -48,6 +53,7 @@ class CorefDataset(Dataset):
         coref_examples = []
         lengths = []
         num_examples_filtered = 0
+
         for doc_key, words, clusters, speakers, sentences in examples:
 
             word_idx_to_start_token_idx = dict()
@@ -57,6 +63,7 @@ class CorefDataset(Dataset):
 
             token_ids = []
             last_speaker = None
+
             for idx, (word, speaker, sentence) in enumerate(zip(words, speakers, sentences)):
                 if last_speaker != speaker:
                     speaker_prefix = [SPEAKER_START] + self.tokenizer.encode(" " + speaker,
@@ -64,6 +71,7 @@ class CorefDataset(Dataset):
                     last_speaker = speaker
                 else:
                     speaker_prefix = []
+
                 for _ in range(len(speaker_prefix)):
                     end_token_idx_to_word_idx.append(idx)
                     end_token_idx_to_sent_idx.append(sentence)
@@ -148,6 +156,7 @@ def get_dataset(args, tokenizer, evaluate=False):
             return pickle.load(f)
 
     file_path, cache_path = (args.predict_file, args.predict_file_cache) if evaluate else (args.train_file, args.train_file_cache)
+
 
     coref_dataset = CorefDataset(file_path, tokenizer, max_seq_length=args.max_seq_length)
     with open(cache_path, 'wb') as f:

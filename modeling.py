@@ -8,6 +8,8 @@ from attention import Attention
 import torch.nn.functional as F
 from consts import PADDING_VALUE, MAX_VALUE, LESS_VALUE, CONTINUE, RETAIN, SHIFT
 
+import intel_extension_for_pytorch
+
 class FullyConnectedLayer(Module):
     def __init__(self, config, input_dim, output_dim, dropout_prob):
         super(FullyConnectedLayer, self).__init__()

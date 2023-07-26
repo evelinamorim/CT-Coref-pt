@@ -67,6 +67,14 @@ def train(args, train_dataset, model, tokenizer, evaluator):
             raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
         model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
 
+    if args.ipex or args.intel:
+        try:
+            import intel_extension_for_pytorch as ipex
+        except ImportError:
+            raise ImportError("Please install intel packages for pytorch. Following the instructions in https://bit.ly/43BUXJU", )
+        #model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.bfloat16)
+        #model = ipex.optimize(model)
+
     # multi-gpu training (should be after apex fp16 initialization)
     if args.n_gpu > 1:
         model = torch.nn.DataParallel(model)
@@ -85,6 +93,7 @@ def train(args, train_dataset, model, tokenizer, evaluator):
     logger.info("  Total optimization steps = %d", t_total)
 
     global_step = 0
+
     if os.path.exists(args.model_name_or_path) and 'checkpoint' in args.model_name_or_path:
         try:
             # set global_step to gobal_step of last saved checkpoint from model path
@@ -125,13 +134,28 @@ def train(args, train_dataset, model, tokenizer, evaluator):
     set_seed(args)
     best_f1 = -1
     best_global_step = -1
+
+    model.train()
+    model = model.to(args.device)
+
+    print("Ipex optimize...")
+    model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.float32)
+
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
+
         for step, batch in enumerate(epoch_iterator):
-            
+
+
+            # review this line
             batch = tuple(tensor.to(args.device) for tensor in batch)
             input_ids, attention_mask, sentence_ids, gold_clusters = batch
-            model.train()
+
+
+            input_ids = input_ids.to(args.device)
+            attention_mask = attention_mask.to(args.device)
+            sentence_ids = sentence_ids.to(args.device)
+            gold_clusters = gold_clusters.to(args.device)
 
             outputs = model(input_ids=input_ids,
                             attention_mask=attention_mask,
