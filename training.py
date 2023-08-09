@@ -137,25 +137,25 @@ def train(args, train_dataset, model, tokenizer, evaluator):
 
     model.train()
     model = model.to(args.device)
+    if args.ipex:
+        print("Ipex optimize...")
+        model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.float32)
 
-    print("Ipex optimize...")
-    model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.float32)
 
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
 
         for step, batch in enumerate(epoch_iterator):
 
-
             # review this line
             batch = tuple(tensor.to(args.device) for tensor in batch)
             input_ids, attention_mask, sentence_ids, gold_clusters = batch
-
 
             input_ids = input_ids.to(args.device)
             attention_mask = attention_mask.to(args.device)
             sentence_ids = sentence_ids.to(args.device)
             gold_clusters = gold_clusters.to(args.device)
+
 
             outputs = model(input_ids=input_ids,
                             attention_mask=attention_mask,

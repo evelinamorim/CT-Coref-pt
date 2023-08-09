@@ -6,7 +6,8 @@ import shutil
 import git
 import torch
 
-from transformers import AutoConfig, AutoTokenizer, CONFIG_MAPPING, LongformerConfig, LongformerTokenizer
+from transformers import AutoConfig, AutoTokenizer, CONFIG_MAPPING, LongformerConfig, LongformerTokenizer, \
+    BertTokenizer, BertConfig
 from modeling import S2E
 from data import get_dataset
 from cli import parse_args
@@ -91,6 +92,8 @@ def main():
         if args.tokenizer_class == "longformer":
             tokenizer = LongformerTokenizer.from_pretrained(args.tokenizer_name, cache_dir=args.cache_dir)
             #tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, cache_dir=args.cache_dir, tokenizer_class="LongformerTokenizer")
+        elif args.tokenizer_class == "bert":
+            tokenizer = BertTokenizer.from_pretrained(args.tokenizer_name, cache_dir=args.cache_dir)
         else:
             tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_name, cache_dir=args.cache_dir)
     elif args.model_name_or_path:
@@ -101,8 +104,14 @@ def main():
             "and load it from here, using --tokenizer_name"
         )
 
-    config_class = LongformerConfig
-    base_model_prefix = "longformer"
+
+    if args.tokenizer_class == "longformer":
+        config_class = LongformerConfig
+        base_model_prefix = "longformer"
+    else:
+        config_class = BertConfig
+        base_model_prefix = "bert"
+
     S2E.config_class = config_class
     S2E.base_model_prefix = base_model_prefix
     model = S2E.from_pretrained(args.model_name_or_path,
@@ -120,6 +129,7 @@ def main():
     evaluator = Evaluator(args, tokenizer)
     # Training
     if args.do_train:
+
         train_dataset = get_dataset(args, tokenizer, evaluate=False)
 
         global_step, tr_loss = train(args, train_dataset, model, tokenizer, evaluator)

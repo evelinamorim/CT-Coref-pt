@@ -66,7 +66,7 @@ def parse_args():
                         type=str,
                         help="Pretrained tokenizer name or path if not the same as model_name")
     parser.add_argument("--tokenizer_class",
-                        default="longformer",
+                        default="None",
                         type=str,
                         help="Tokenizer class to be loaded")
     parser.add_argument("--cache_dir",

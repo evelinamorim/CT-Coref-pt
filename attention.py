@@ -105,6 +105,7 @@ class PositionalEncoder(Module):
         pe = Variable(self.pe, requires_grad=False)
         if x.is_cuda:
             pe.cuda()
+
         x = x + pe
         return self.dropout(x)
     
@@ -116,6 +117,7 @@ class Attention(Module):
         self.norm = Norm(topm)
         
     def forward(self, src, mask):
+
         x = self.pe(src)
         atten_x = self.layers(x, mask)
         return self.norm(atten_x)

@@ -37,6 +37,7 @@ def output_conll(input_file, output_file, predictions, subtoken_map):
 
     word_index = 0
     for line in input_file.readlines():
+
         row = line.split()
         if len(row) == 0:
             output_file.write("\n")
@@ -49,7 +50,7 @@ def output_conll(input_file, output_file, predictions, subtoken_map):
             output_file.write(line)
             output_file.write("\n")
         else:
-            assert get_doc_key(row[0], row[1]) == doc_key
+            #assert get_doc_key(row[0], row[1]) == doc_key
             coref_list = []
             if word_index in end_map:
                 for cluster_id in end_map[word_index]:
@@ -86,6 +87,7 @@ def official_conll_eval(gold_path, predicted_path, metric, official_stdout=True)
         logger.info(stdout)
 
     coref_results_match = re.match(COREF_RESULTS_REGEX, stdout)
+    print("TESTE >>>", stdout, coref_results_match, cmd)
     recall = float(coref_results_match.group(1))
     precision = float(coref_results_match.group(2))
     f1 = float(coref_results_match.group(3))

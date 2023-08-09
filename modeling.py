@@ -1,6 +1,6 @@
 import torch
 from torch.nn import Module, Linear, LayerNorm, Dropout
-from transformers import BertPreTrainedModel, LongformerModel
+from transformers import LongformerModel, BertModel, BertPreTrainedModel
 from transformers.activations import ACT2FN
 from utils import extract_clusters, extract_mentions_to_predicted_clusters_from_clusters, mask_tensor, sim_matrix
 from torch.nn.utils.rnn import pad_sequence
@@ -44,7 +44,10 @@ class S2E(BertPreTrainedModel):
         self.normalise_loss = args.normalise_loss
         self.t_sim = args.t_sim
 
-        self.longformer = LongformerModel(config)
+        if args.tokenizer_class == "longformer":
+            self.longformer = LongformerModel(config)
+        else:
+            self.longformer = BertModel(config)
 
         self.start_mention_mlp = FullyConnectedLayer(config, config.hidden_size, self.ffnn_size, args.dropout_prob) if self.do_mlps else None
         self.end_mention_mlp = FullyConnectedLayer(config, config.hidden_size, self.ffnn_size, args.dropout_prob) if self.do_mlps else None
@@ -197,7 +200,6 @@ class S2E(BertPreTrainedModel):
     def _get_sent_sent_logits_byGraph(self, sent_topm_reps, sent_topm_mask, topk_start_sent_reps, topk_end_sent_reps, topk_sent_reps_indices, topk_sent_reps):
         
         bz,topk,dim = topk_start_sent_reps.size()
-        
         sent_attentions = self.get_sent_attentions(sent_topm_reps, sent_topm_mask) # [batch_size, sent_len, topm]
         
         #
@@ -248,7 +250,7 @@ class S2E(BertPreTrainedModel):
         return sent_topm_sentindices # [batch_size,sent_len,topm]
     
     def _calc_sent_sent_logits(self, mention_start_ids, mention_end_ids, topk_mention_logits, start_ft_reps, end_ft_reps, sent_reps, inverse_indices):
-        
+
         topk_start_sent_reps, topk_end_sent_reps, topk_sent_reps, topk_sent_indices, topk_sent_reps_indices = self._get_topk_sent_reps(mention_start_ids, mention_end_ids, sent_reps, inverse_indices)
         
         # get index of topm of each sentence in topk indices form
@@ -257,7 +259,7 @@ class S2E(BertPreTrainedModel):
         # 
         sent_topm_mask = sent_topm_sentindices.le(LESS_VALUE)  # [batch_size,sent_len, topm]
         sent_topm_reps = self._get_sent_topm_reps(sent_topm_sentindices, mention_start_ids, mention_end_ids, start_ft_reps, end_ft_reps) # [batch_size,sent_len, topm, dim]
-        
+
         topk_sent_sent_logits = self._get_sent_sent_logits_byGraph(sent_topm_reps, sent_topm_mask, topk_start_sent_reps, topk_end_sent_reps, topk_sent_reps_indices, topk_sent_reps)
         
         return topk_sent_sent_logits
@@ -359,9 +361,105 @@ class S2E(BertPreTrainedModel):
          
         return mention_logits
 
+    def get_sentence_lengths(self, sentence_indexes):
+        # Convert the tensor to a Python list
+        sentence_indexes_list = sentence_indexes.squeeze().tolist()
+
+        # Initialize a list to store the lengths of each sentence
+        sentence_lengths = []
+
+        # Variables to keep track of the current sentence
+        current_sentence_length = 0
+        current_sentence_index = sentence_indexes_list[0]
+
+        # Loop through the sentence indexes to calculate sentence lengths
+        for index in sentence_indexes_list:
+            if index == current_sentence_index:
+                current_sentence_length += 1
+            else:
+                # Store the length of the previous sentence
+                sentence_lengths.append(current_sentence_length)
+                # Reset the variables for the new sentence
+                current_sentence_length = 1
+                current_sentence_index = index
+
+        # Add the length of the last sentence
+        sentence_lengths.append(current_sentence_length)
+
+        return sentence_lengths
+
+    def segment_document(self, token_ids, sentence_indexes, attention_mask):
+        max_length = 512
+        num_tokens = token_ids.size(1)
+
+        sent_lens = self.get_sentence_lengths(sentence_indexes)
+
+        # Create empty lists to hold the segmented inputs and outputs
+        segmented_inputs = []
+
+        # Split tokens into buckets while preserving sentence continuity
+        current_segment = []
+
+        for i in range(num_tokens):
+            current_segment.append(i)
+            # Check if the next token belongs to the same sentence
+            if i == num_tokens - 1 or sentence_indexes[0, i] != sentence_indexes[0, i + 1]:
+
+                if i + 1 >= num_tokens:
+                    continue
+
+                idx_sent1 = sentence_indexes[0, i + 1]
+                if idx_sent1 > len(sent_lens):
+                   continue
+
+                if sent_lens[idx_sent1] + len(current_segment) < max_length:
+                    continue
+
+                # Ensure the current segment doesn't exceed the max_length
+                while len(current_segment) > max_length:
+                    # If it does, create a new segment that respects max_length
+                    segmented_inputs.append((token_ids[:, current_segment[:max_length]],
+                                             sentence_indexes[:, current_segment[:max_length]]))
+                    current_segment = current_segment[max_length:]
+
+                if len(current_segment) > 0:
+                    # Append the remaining segment
+                    segmented_inputs.append((token_ids[:, current_segment],
+                                             sentence_indexes[:, current_segment],
+                                             attention_mask[:, current_segment]))
+                current_segment = []
+
+        if len(current_segment) > 0:
+            # Append the remaining segment
+            segmented_inputs.append((token_ids[:, current_segment],
+                                     sentence_indexes[:, current_segment],
+                                     attention_mask[:, current_segment]))
+
+        return segmented_inputs
+
     def forward(self, input_ids, attention_mask=None, sentence_ids=None, gold_clusters=None, return_all_outputs=False):
-        outputs = self.longformer(input_ids, attention_mask=attention_mask)
-        sequence_output = outputs[0]  # [batch_size, seq_len, dim]
+
+
+        if isinstance(self.longformer, BertModel):
+
+            if input_ids.shape[1] > 512:
+
+                segmented_inputs = self.segment_document(input_ids, sentence_ids, attention_mask)
+                output_segment_lst = []
+
+                for segment in segmented_inputs:
+                    segment_ids, segment_sent, segment_attention = segment
+                    output_segment = self.longformer(segment_ids, segment_attention)
+                    output_segment_lst.append(output_segment.last_hidden_state)
+
+                # Concatenate the BERT outputs along the 1st dimension to get a single tensor of shape (1, 512, 768)
+                sequence_output = torch.cat(output_segment_lst, dim=1)
+            else:
+                outputs = self.longformer(input_ids, attention_mask=attention_mask)
+                sequence_output = outputs[0]
+        else:
+            outputs = self.longformer(input_ids, attention_mask=attention_mask)
+            sequence_output = outputs[0]  # [batch_size, seq_len, dim]
 
         # Compute representations
         start_mention_reps = self.start_mention_mlp(sequence_output) if self.do_mlps else sequence_output

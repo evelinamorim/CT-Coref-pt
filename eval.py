@@ -41,6 +41,7 @@ class Evaluator:
         doc_to_subtoken_map = {}
         for (doc_key, subtoken_maps), batch in eval_dataloader:
 
+
             batch = tuple(tensor.to(self.args.device) for tensor in batch)
             input_ids, attention_mask, sentence_ids, gold_clusters = batch
 

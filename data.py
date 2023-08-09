@@ -23,6 +23,8 @@ class CorefDataset(Dataset):
         self.max_seq_length = max_seq_length
 
         self.examples, self.lengths, self.num_examples_filtered = self._tokenize(examples)
+        print(f"Finished preprocessing Coref dataset. {len(self.examples)} examples were extracted, {self.num_examples_filtered} were filtered due to sequence length.")
+
         logger.info(
             f"Finished preprocessing Coref dataset. {len(self.examples)} examples were extracted, {self.num_examples_filtered} were filtered due to sequence length.")
 
@@ -31,21 +33,22 @@ class CorefDataset(Dataset):
         max_mention_num = -1
         max_cluster_size = -1
         max_num_clusters = -1
-        doc_set = set()
+
         with open(file_path, 'r') as f:
             for line in f:
                 d = json.loads(line.strip())
                 doc_key = d["doc_key"]
-                if doc_key not in doc_set:
-                    doc_set.add(doc_key)
 
                 input_words = flatten_list_of_lists(d["sentences"])
+                #if len(input_words) < 10:
+                #    print("-->", doc_key, len(input_words))
                 clusters = d["clusters"]
                 sentences = input_words_sentences_mapping(d["sentences"])
                 max_mention_num = max(max_mention_num, len(flatten_list_of_lists(clusters)))
                 max_cluster_size = max(max_cluster_size, max(len(cluster) for cluster in clusters) if clusters else 0)
                 max_num_clusters = max(max_num_clusters, len(clusters) if clusters else 0)
                 speakers = flatten_list_of_lists(d["speakers"])
+
                 examples.append((doc_key, input_words, clusters, speakers, sentences))
         return examples, max_mention_num, max_cluster_size, max_num_clusters
 
@@ -65,6 +68,8 @@ class CorefDataset(Dataset):
             last_speaker = None
 
             for idx, (word, speaker, sentence) in enumerate(zip(words, speakers, sentences)):
+
+                # 1) Coding of Speaker
                 if last_speaker != speaker:
                     speaker_prefix = [SPEAKER_START] + self.tokenizer.encode(" " + speaker,
                                                                              add_special_tokens=False) + [SPEAKER_END]
@@ -75,6 +80,8 @@ class CorefDataset(Dataset):
                 for _ in range(len(speaker_prefix)):
                     end_token_idx_to_word_idx.append(idx)
                     end_token_idx_to_sent_idx.append(sentence)
+
+                # if there is a speaker, then attach to the token ids
                 token_ids.extend(speaker_prefix)
                 word_idx_to_start_token_idx[idx] = len(token_ids) + 1  # +1 for <s>
                 tokenized = self.tokenizer.encode(" " + word, add_special_tokens=False)
@@ -85,9 +92,9 @@ class CorefDataset(Dataset):
                 token_ids.extend(tokenized)
                 word_idx_to_end_token_idx[idx] = len(token_ids)  # old_seq_len + 1 (for <s>) + len(tokenized_word) - 1 (we start counting from zero) = len(token_ids)
 
-            if 0 < self.max_seq_length < len(token_ids):
-                num_examples_filtered += 1
-                continue
+            #if 0 < self.max_seq_length < len(token_ids):
+            #    num_examples_filtered += 1
+            #    continue
 
             new_clusters = [
                 [(word_idx_to_start_token_idx[start], word_idx_to_end_token_idx[end]) for start, end in cluster] for
@@ -139,6 +146,7 @@ class CorefDataset(Dataset):
             example = (encoded_dict["input_ids"], encoded_dict["attention_mask"]) + (torch.tensor(sentences),) + (torch.tensor(clusters),)
             padded_batch.append(example)
         tensored_batch = tuple(torch.stack([example[i].squeeze() for example in padded_batch], dim=0) for i in range(len(example)))
+
         return tensored_batch
 
 def get_dataset(args, tokenizer, evaluate=False):
