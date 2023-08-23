@@ -8,7 +8,11 @@ from attention import Attention
 import torch.nn.functional as F
 from consts import PADDING_VALUE, MAX_VALUE, LESS_VALUE, CONTINUE, RETAIN, SHIFT
 
-import intel_extension_for_pytorch
+
+try:
+    import intel_extension_for_pytorch
+except ImportError:
+    print("Warning: intel_extension_for_pytorch is not installed, it can be raise errors")
 
 class FullyConnectedLayer(Module):
     def __init__(self, config, input_dim, output_dim, dropout_prob):
@@ -241,7 +245,8 @@ class S2E(BertPreTrainedModel):
         bz,topk = topk_sent_reps_indices.shape
 
         topk_sentindices = torch.arange(topk).repeat(bz,1) # [batch_size, max_k]
-        
+        topk_sentindices = topk_sentindices.to(topk_sent_reps_indices.device)
+
         topk_sent_sentindices_list = [[topk_sentindices[j][topk_sent_reps_indices[j] == i] for i in range(len(topk_sent_indices))] for j in range(bz)]
         sent_topm_indices_list = [[torch.sort(torch.sort(topk_mention_logits[j][topk_sent_reps_indices[j] == i], descending=True).indices[:self.top_m]).values for i in range(len(topk_sent_indices))] for j in range(bz)]
 	

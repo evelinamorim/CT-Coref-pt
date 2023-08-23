@@ -35,7 +35,7 @@ download_and_extract $conll_url conll-2012-development.v4.tar.gz
 download_and_extract $conll_url/test conll-2012-test-key.tar.gz
 download_and_extract $conll_url/test conll-2012-test-official.v9.tar.gz
 
-#download_and_extract $conll_url conll-2012-scripts.v3.tar.gz
+download_and_extract $conll_url conll-2012-scripts.v3.tar.gz
 
 download_and_extract https://conll.cemantix.org/download reference-coreference-scorers.v8.01.tar.gz
 mv reference-coreference-scorers conll-2012/scorer

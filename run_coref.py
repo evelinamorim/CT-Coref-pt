@@ -23,6 +23,19 @@ def main():
     transformers_logger = logging.getLogger("transformers")
     transformers_logger.setLevel(logging.ERROR)
 
+    # Create a file handler
+    log_filename = "coref.log"
+    file_handler = logging.FileHandler(log_filename)
+    file_handler.setLevel(logging.ERROR)
+
+    # Create a log formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    file_handler.setFormatter(formatter)
+
+    # Add the file handler to the logger
+    transformers_logger.addHandler(file_handler)
+
+
     if args.predict_file is None and args.do_eval:
         raise ValueError(
             "Cannot do evaluation without an evaluation data file. Either supply a file to --eval_data_file "
@@ -46,6 +59,8 @@ def main():
         else:
             device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
             args.n_gpu = torch.cuda.device_count()
+            #device = torch.device("cpu")
+            #args.n_gpu = 0
     else:  # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
         torch.cuda.set_device(args.local_rank)
         device = torch.device("cuda", args.local_rank)
@@ -74,6 +89,7 @@ def main():
 
     # Set seed
     set_seed(args)
+    torch.cuda.empty_cache() 
 
     # Load pretrained model and tokenizer
     if args.local_rank not in [-1, 0]:

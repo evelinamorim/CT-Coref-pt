@@ -38,6 +38,7 @@ class BucketBatchSampler(DataLoader):
                 per_example_batch_len = self.calc_effective_per_example_batch_len(len(elem.token_ids))
             elif (len(batch) + 1) * per_example_batch_len > self.max_total_seq_len:
 
+                #print("** Total Length of batch ** : ",len(batch[0].token_ids))
                 batch = self.data_source.pad_batch(batch, len(batch[0].token_ids))
 
                 batches.append(batch)

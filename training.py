@@ -8,6 +8,8 @@ import torch
 from coref_bucket_batch_sampler import BucketBatchSampler
 from tqdm import tqdm, trange
 
+from torch.cuda.amp import GradScaler, autocast
+
 from transformers import AdamW, get_linear_schedule_with_warmup
 
 logger = logging.getLogger(__name__)
@@ -61,11 +63,13 @@ def train(args, train_dataset, model, tokenizer, evaluator):
         loaded_saved_optimizer = True
 
     if args.amp:
-        try:
-            from apex import amp
-        except ImportError:
-            raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
-        model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
+        # Create a GradScaler object to manage the gradient scaling
+        scaler = GradScaler(growth_interval=100)
+    #    try:
+    #        from apex import amp
+    #    except ImportError:
+    #        raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+    #    model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
 
     if args.ipex or args.intel:
         try:
@@ -142,10 +146,12 @@ def train(args, train_dataset, model, tokenizer, evaluator):
         model, optimizer = ipex.optimize(model, optimizer=optimizer, dtype=torch.float32)
 
 
+
     for _ in train_iterator:
         epoch_iterator = tqdm(train_dataloader, desc="Iteration", disable=args.local_rank not in [-1, 0])
 
         for step, batch in enumerate(epoch_iterator):
+
 
             # review this line
             batch = tuple(tensor.to(args.device) for tensor in batch)
@@ -156,30 +162,55 @@ def train(args, train_dataset, model, tokenizer, evaluator):
             sentence_ids = sentence_ids.to(args.device)
             gold_clusters = gold_clusters.to(args.device)
 
-
-            outputs = model(input_ids=input_ids,
+            if args.amp:
+                with autocast(enabled=False):
+                    outputs = model(input_ids=input_ids,
                             attention_mask=attention_mask,
                             sentence_ids = sentence_ids,
                             gold_clusters=gold_clusters,
                             return_all_outputs=False)
-            loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
-            losses = outputs[-1]
+                loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
+                losses = outputs[-1]
 
-            if args.n_gpu > 1:
-                loss = loss.mean()  # mean() to average on multi-gpu parallel training
-                losses = {key: val.mean() for key, val in losses.items()}
-            if args.gradient_accumulation_steps > 1:
-                loss = loss / args.gradient_accumulation_steps
 
-            if args.amp:
-                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                    scaled_loss.backward()
+                if args.n_gpu > 1:
+                    loss = loss.mean()  # mean() to average on multi-gpu parallel training
+                    losses = {key: val.mean() for key, val in losses.items()}
+                if args.gradient_accumulation_steps > 1:
+                    loss = loss / args.gradient_accumulation_steps
+
+                # Scale the loss to prevent underflow
+                scaled_loss = scaler.scale(loss)
+
+                scaled_loss.backward()
+
             else:
+                outputs = model(input_ids=input_ids,
+                            attention_mask=attention_mask,
+                            sentence_ids = sentence_ids,
+                            gold_clusters=gold_clusters,
+                            return_all_outputs=False)
+                loss = outputs[0]  # model outputs are always tuple in transformers (see doc)
+                losses = outputs[-1]
+
+                if args.n_gpu > 1:
+                    loss = loss.mean()  # mean() to average on multi-gpu parallel training
+                    losses = {key: val.mean() for key, val in losses.items()}
+                if args.gradient_accumulation_steps > 1:
+                    loss = loss / args.gradient_accumulation_steps
                 loss.backward()
+
 
             tr_loss += loss.item()
             if (step + 1) % args.gradient_accumulation_steps == 0:
-                optimizer.step()
+                if args.amp:
+                    # Unscale gradients and update the optimizer
+                    scaler.step(optimizer)
+
+                    # Update the scale for the next iteration
+                    scaler.update()
+                else:
+                    optimizer.step()
                 scheduler.step()  # Update learning rate schedule
                 model.zero_grad()
                 global_step += 1

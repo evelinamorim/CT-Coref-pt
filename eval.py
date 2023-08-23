@@ -46,6 +46,12 @@ class Evaluator:
             input_ids, attention_mask, sentence_ids, gold_clusters = batch
 
             with torch.no_grad():
+
+                input_ids = input_ids.to(self.args.device)
+                attention_mask = attention_mask.to(self.args.device)
+                sentence_ids = sentence_ids.to(self.args.device)
+                gold_clusters = gold_clusters.to(self.args.device)
+
                 outputs = model(input_ids=input_ids,
                                 attention_mask=attention_mask,
                                 sentence_ids = sentence_ids,
